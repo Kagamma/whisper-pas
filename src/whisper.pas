@@ -33,7 +33,10 @@ type
   Twhisper_token = cint;
   Pwhisper_token = ^Twhisper_token;
 
-  Pwhisper_context = Pointer;
+  Twhisper_context = record
+    // Internal C++ struct
+  end;
+  Pwhisper_context = ^Twhisper_context;
   Pwhisper_state = Pointer;
 
   Twhisper_token_data = record
