@@ -16,8 +16,11 @@ type
     ByteRate: LongWord;                 // Byte rate (SampleRate * NumChannels * BitsPerSample / 8)
     BlockAlign: Word;                   // Block alignment (NumChannels * BitsPerSample / 8)
     BitsPerSample: Word;                // Bits per sample (e.g., 16 for 16-bit audio)
-    Subchunk2ID: array [0..3] of Char;  // "data" (Data subchunk)
-    Subchunk2Size: LongWord;            // Size of the data subchunk (NumSamples * NumChannels * BitsPerSample / 8)
+  end;
+
+  TWaveChunk = packed record
+    ID: array [0..3] of Char;
+    Size: LongWord;
   end;
 
 var
@@ -30,6 +33,7 @@ var
 procedure ReadWaveFile;
 var
   FS: TFileStream;
+  Chunk: TWaveChunk;
   I: Integer;
 begin
   if not FileExists(InputFName) then
@@ -50,11 +54,22 @@ begin
       Writeln('BitsPerSample must be 16!');
       Halt;
     end;
-    SetLength(WaveData, WaveHeader.Subchunk2Size div (WaveHeader.BitsPerSample div 8));
-    SetLength(WaveDataFloat, Length(WaveData));
-    FS.Read(WaveData[0], WaveHeader.Subchunk2Size);
-    for I := 0 to Length(WaveData) - 1 do
-      WaveDataFloat[I] := WaveData[I] / Power(2, WaveHeader.BitsPerSample);
+    while FS.Position < FS.Size - 1 do
+    begin
+      FS.Read(Chunk, SizeOf(TWaveChunk));
+      if Chunk.ID = 'data' then
+      begin
+        SetLength(WaveData, Chunk.Size div (WaveHeader.BitsPerSample div 8));
+        SetLength(WaveDataFloat, Length(WaveData));
+        FS.Read(WaveData[0], Chunk.Size);
+        for I := 0 to Length(WaveData) - 1 do
+          WaveDataFloat[I] := WaveData[I] / Power(2, WaveHeader.BitsPerSample);
+        Break;
+      end else
+      begin
+        FS.Position := FS.Position + Chunk.Size;
+      end;
+    end;
   finally
     FS.Free;
   end;
@@ -63,29 +78,35 @@ end;
 procedure Inference;
 var
   Params: Twhisper_full_params;
-  Ctx: Twhisper_context;
+  Ctx: Pwhisper_context;
   I, NumSegments: Integer;
   Str: PChar;
 begin
+  Ctx := whisper_init_from_file(PChar(ModelFName));
+  if Ctx = nil then
+  begin
+    Writeln('Failed to initialize whisper context');
+    Halt;
+  end;
   Params := whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
   Params.n_threads := 4;
   Params.strategy := WHISPER_SAMPLING_GREEDY;
   Params.print_realtime := false;
   Params.print_progress := false;
-  if whisper_full_parallel(@Ctx, params, @WaveDataFloat[0], Length(WaveDataFloat), 1) <> 0 then
+  if whisper_full_parallel(Ctx, params, @WaveDataFloat[0], Length(WaveDataFloat), 1) <> 0 then
   begin
     Writeln('Failed to process audio');
     Halt;
   end;
-  NumSegments := whisper_full_n_segments(@Ctx);
+  NumSegments := whisper_full_n_segments(Ctx);
   for I := 0 to NumSegments - 1 do
   begin
-    Str := whisper_full_get_segment_text(@Ctx, I);
+    Str := whisper_full_get_segment_text(Ctx, I);
     // TODO: speaker
     Writeln(Str);
   end;
-  whisper_print_timings(@Ctx);
-  whisper_free(@Ctx);
+  whisper_print_timings(Ctx);
+  whisper_free(Ctx);
 end;
 
 procedure ParseParameters;
