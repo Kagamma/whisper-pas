@@ -1,7 +1,7 @@
 program whisper_cli;
 
 uses
-  SysUtils, Classes, Math, whisper;
+  SysUtils, Classes, whisper;
 
 type
   TWaveHeader = packed record
@@ -63,7 +63,7 @@ begin
         SetLength(WaveDataFloat, Length(WaveData));
         FS.Read(WaveData[0], Chunk.Size);
         for I := 0 to Length(WaveData) - 1 do
-          WaveDataFloat[I] := WaveData[I] / Power(2, WaveHeader.BitsPerSample);
+          WaveDataFloat[I] := WaveData[I] / (2 shl WaveHeader.BitsPerSample);
         Break;
       end else
       begin
