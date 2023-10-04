@@ -102,7 +102,6 @@ begin
   for I := 0 to NumSegments - 1 do
   begin
     Str := whisper_full_get_segment_text(Ctx, I);
-    // TODO: speaker
     Writeln(Str);
   end;
   whisper_print_timings(Ctx);
