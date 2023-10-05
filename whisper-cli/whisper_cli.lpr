@@ -27,7 +27,7 @@ var
   ModelFName: String;
   InputFName: String;
   WaveHeader: TWaveHeader;
-  WaveData: array of Word;
+  WaveData: array of SmallInt;
   WaveDataFloat: array of Single;
 
 procedure ReadWaveFile;
